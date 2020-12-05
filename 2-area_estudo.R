@@ -12,7 +12,7 @@ library(tmap)
 library(RColorBrewer)
 
 
-###############
+######################
 #ORGANIZACAO DOS DADOS
 setwd("C:/Users/veras_mariaeloisa/Documents/CTA-DadosEspaciais/Area_estudo")
 dir("C:/Users/veras_mariaeloisa/Documents/CTA-DadosEspaciais/Area_estudo/dados")
@@ -69,7 +69,7 @@ plot(st_geometry(ucs),add=T)
 par(mfrow=c(1,1))
 
 
-###############
+######################
 #MAPAS INICIAIS
 #metodo incremental - mapa de localizacao
 dev.new(weight=10,length=10)
@@ -146,7 +146,7 @@ dev.new()
 tmap_mode("plot")
 
 
-###############
+######################
 
 # mask e crop e reclassificar a declividade
 decliv_crop<- crop(declividade,AreaEstudo)
@@ -256,47 +256,32 @@ plot(st_geometry(rios),add=T)
 plot(rios_crop,col="red",add=T)
 
 
-
+######################
 ## analise multicritério
-testee<- crop(ucs_raster+rural_raster+rios_raster,AreaEstudo)
-plot(testee)
-plot(rural_crop,col= NA, border="green3", lwd=2, add=T)
-plot(ucs_crop, col=NA, border="blue",lwd=2,add=T)
-plot(AreaEstudo, col=NA, border="red", lwd=2, add=T)
 
-
-plot(st_geometry(ucs_crop),add=T)
-
-testee_reclass<-reclassify(testee, c(0,1,1,1,2,2,2,3,3,4,5,5))
-plot(testee_reclass, col= pal_mult_crit)
-testee2<- crop(testee+rios_raster, AreaEstudo)
-plot(testee2)
-View(testee$layer==1)
-
-
-frag_pot<- crop(ucs_raster+rios_raster+rural_raster+decliv_reclass_crop, AreaEstudo)
-writeRaster(frag_pot,"frag_pot.tif", overwrite= T)
-
-
-
-display.brewer.all()
-pal_mult_crit <- c("#000000", "#fc3a38", "#0316fa", "#000000", "#acf9fe")
-pal_test<- c("#d73027","#f46d43","#fdae61","#fee090","#e0f3f8","#abd9e9","#74add1","#4575b4")
+rasters_all<- brick(ucs_raster, rural_raster, rios_raster)
+frag_pot <- stackApply(rasters_all, indices=c(1,1,1), fun=sum, na.rm = T)
+frag_pot[frag_pot==0] <- NA
+frag_pot_crop<- crop(frag_pot, AreaEstudo)
 
 dev.new()
-paired = brewer.pal(n = 10, name = "Paired")
-plot(frag_pot, col= paired)
-plot(AreaEstudo, col=NA, border= "Red", lwd= 2,add=T)
+#spplot(frag_pot_crop, maxpixels=50000, as.table=TRUE)
+plot(frag_pot_crop)
+zoom(frag_pot, ext=drawExtent())
+writeRaster(frag_pot_crop, "fragilidade_potencial.tif", overwrite= T)
 
-#####
 
+
+######################
+## mapa - análise multricritério
+dev.new()
 tm_shape(SaoPaulo) + tm_polygons(col = "grey96", border.col = "grey40") + tm_grid(
   alpha = 0.1,
   labels.rot = c(0, 90),
   labels.inside.frame = F
 )  +
   tm_layout(
-    main.title = "Mapa de restricoes ambientais\n da area de estudo",
+    main.title = "Mapa de restrições ambientais\n da área de estudo",
     main.title.position = "center",
     outer.margins = 0.05
   ) + tm_add_legend(
@@ -305,8 +290,24 @@ tm_shape(SaoPaulo) + tm_polygons(col = "grey96", border.col = "grey40") + tm_gri
     border.col = "grey40",
     labels = "Municipio de Sao Paulo"
   ) +  
-  tm_shape(AreaEstudo) + tm_polygons(border.col = "gold3", lwd = 5) + tm_add_legend( type = "fill",col = NA, border.col = "gold3",size=2,labels = "Area de estudo")+tm_shape(rodoanel) +tm_lines(col = "firebrick3", lwd = 3)+tm_add_legend( type = "line",border.lwd =2,col = "firebrick3",labels = "Rodoanel") + tm_compass(position = c("right", "top")) + tm_scale_bar(position = c("right", "center")) + tm_credits(position = c("right", "center"), "Projecao SIRGAS 2000 \n Fonte: IBGE")+
-  tm_shape(frag_pot)+tm_raster(labels = c("1","2","3","4","5","6"),legend.show = T,palette = pal18,title = "Restricoes (pesos)")
+  tm_shape(AreaEstudo) + tm_polygons(border.col = "gold3", lwd = 5) + tm_add_legend(
+    type = "fill",
+    col = NA,
+    border.col = "gold3",
+    size = 2,
+    labels = "Area de estudo"
+  ) + 
+  tm_shape(frag_pot_crop) + tm_raster(
+    labels = c("1 - sem ou baixa restricao ambiental", "2 - com restricao ambiental, mas passivel de uso", "3 - com restricao e ocupacao nao recomendada", "4 - ocupação não permitida"),
+    legend.show = T,
+    palette = "OrRd",
+    title = "Grau de restrição"
+  ) + 
+  tm_shape(rodoanel) + tm_lines(col = "firebrick3", lwd = 3) + tm_add_legend(
+    type = "line",
+    border.lwd = 2,
+    col = "firebrick3",
+    labels = "Rodoanel"
+  ) + tm_compass(position = c("right", "top")) + tm_scale_bar(position = c("right", "center")) + tm_credits(position = c("right", "center"),"Projecao SIRGAS 2000 \n Fonte: IBGE") 
 
-plot(frag_pot, col=pal18)
-plot(AreaEstudo,col=NA, border="red", lwd=2,add=T)
+
